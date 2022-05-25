@@ -1,0 +1,11 @@
+# pyenv
+.python-version
+
+# Mac OS
+.DS_Store
+
+# Pycharm
+.idea
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
