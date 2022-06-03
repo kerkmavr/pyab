@@ -10,32 +10,62 @@ import scipy.stats
 import statsmodels.stats.proportion
 import tqdm
 
-from pyab.core.base import ABTestABC
+from base import ABTestABC
 
 if typing.TYPE_CHECKING:
-    from typing import Any, Dict, Optional, List, Tuple
+    from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+logging.basicConfig(
+    format="%(asctime)s %(levelname)-8s %(message)s",
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 
 class ChiSquaredFixedHorizonTest(ABTestABC):
-
     @staticmethod
-    def get_sample_size(base_rate: float, mde: float, alpha: float = 0.05, beta: float = 0.8) -> int:
+    def get_sample_size(
+        base_rate: float, mde: float, alpha: float = 0.05, power: float = 0.8
+    ) -> int:
         """
-        Returns the number of samples required (per variant) before stopping th AB test.
+        Returns the number of samples required (per variant)
+        before stopping the AB test.
 
         Args:
-            base_prob_conv: the conversion rate for the "control" variant (the one currently in production)
-            mde: The Minimum Detectable Effect is the smallest effect that will be detected (1-\\beta)\% of the time.
-            alpha: a float representing the percentage of the time a difference will be detected, assuming one does NOT exist
-            beta: a float representing the percentage of the time the minimum effect size will be detected, assuming it exists
+            base_rate: the conversion rate for the "control" variant
+            (the one currently in production)
+            mde: The Minimum Detectable Effect is the smallest effect
+            that will be detected power% of the time.
+            alpha: The significance level. A float representing the
+            percentage of the time a difference will be detected,
+            assuming one does NOT exist.
+            power: A float representing the percentage of the time the minimum
+            effect size will be detected, assuming it exists.
 
         Returns:
-            an integer, the number of samples per variation required before stopping th AB test.
+            an integer, the number of samples per variation required before
+            stopping the AB test.
         """
-        factor = (scipy.stats.norm.ppf(1 - alpha / 2) + scipy.stats.norm.ppf(beta)) ** 2
-        variance = base_rate * (1 - base_rate) + (base_rate * (1 + mde) * (1 - base_rate * (1 + mde)))
+
+        if base_rate < 0 or base_rate > 1:
+            raise ValueError("base_rate must be between 0 and 1.")
+
+        if mde <= 0:
+            raise ValueError("mde must be larger than 0.")
+
+        if alpha < 0.01 or alpha > 0.1:
+            raise ValueError("alpha is advised to be between 1 and 10%.")
+
+        if power < 0.6 or alpha > 0.95:
+            raise ValueError("power is advised to be between 60 and 95%.")
+
+        factor = (
+            scipy.stats.norm.ppf(1 - alpha / 2) + scipy.stats.norm.ppf(power)
+        ) ** 2
+        variance = base_rate * (1 - base_rate) + (
+            base_rate * (1 + mde) * (1 - base_rate * (1 + mde))
+        )
         err = (base_rate * mde) ** 2
         sample_size = int(factor * variance / err)
         logger.info(f"MDE: {mde} (relative), {mde * base_rate} (absolute)")
@@ -66,10 +96,14 @@ class ChiSquaredFixedHorizonTest(ABTestABC):
         Returns:
             an integer, the number of samples per variation required before stopping th AB test.
         """
-        sample_size = self.get_sample_size(base_rate=base_rate, mde=mde, alpha=alpha, beta=beta, **kwargs)
+        sample_size = self.get_sample_size(
+            base_rate=base_rate, mde=mde, alpha=alpha, beta=beta, **kwargs
+        )
         wait_time_in_days = int(sample_size * 2 / n_samples_per_day) + 1
         logger.info(f"MDE: {mde} (relative), {mde * base_rate} (absolute)")
-        logger.info(f"NHST samples required (per variant): {sample_size} -> {wait_time_in_days} days")
+        logger.info(
+            f"NHST samples required (per variant): {sample_size} -> {wait_time_in_days} days"
+        )
         return sample_size, wait_time_in_days
 
     @staticmethod
@@ -103,11 +137,15 @@ class ChiSquaredFixedHorizonTest(ABTestABC):
         n_experiments, n_days = conversions_a.shape
 
         if counts_a is None:
-            counts_a = np.cumsum(np.ones((n_experiments, n_days)) * n_samples_per_day, axis=1)
+            counts_a = np.cumsum(
+                np.ones((n_experiments, n_days)) * n_samples_per_day, axis=1
+            )
         else:
             counts_a = np.cumsum(counts_a, axis=1)
         if counts_b is None:
-            counts_b = np.cumsum(np.ones((n_experiments, n_days)) * n_samples_per_day, axis=1)
+            counts_b = np.cumsum(
+                np.ones((n_experiments, n_days)) * n_samples_per_day, axis=1
+            )
         else:
             counts_b = np.cumsum(counts_b, axis=1)
 
@@ -142,7 +180,9 @@ class ChiSquaredFixedHorizonTest(ABTestABC):
             conversions_b,
             counts_b,
         ) = self.data_loader.load_data()
-        pvalues = self.get_pvalues(conversions_a, conversions_b, counts_a=counts_a, counts_b=counts_b)
+        pvalues = self.get_pvalues(
+            conversions_a, conversions_b, counts_a=counts_a, counts_b=counts_b
+        )
         return pvalues
 
     def plot(
@@ -170,16 +210,25 @@ class ChiSquaredFixedHorizonTest(ABTestABC):
         return "Chisq"
 
     def get_value_a_and_value_b(self) -> Tuple[float, float]:
-        (conversions_a, counts_a), (conversions_b, counts_b) = self.data_loader.load_data()
+        (conversions_a, counts_a), (
+            conversions_b,
+            counts_b,
+        ) = self.data_loader.load_data()
         cr_a = conversions_a.sum() / counts_a.sum()
         cr_b = conversions_b.sum() / counts_b.sum()
         return cr_a, cr_b
 
     def produce_table_results(
-        self, product: str, main_kpi: bool, force_output: bool, params_for_get_test_length_in_days: Dict[str, Any]
+        self,
+        product: str,
+        main_kpi: bool,
+        force_output: bool,
+        params_for_get_test_length_in_days: Dict[str, Any],
     ) -> pd.DataFrame:
         date_range = self.data_loader.get_date_range()
-        samples, min_duration = self.get_test_length_in_days(**params_for_get_test_length_in_days)
+        samples, min_duration = self.get_test_length_in_days(
+            **params_for_get_test_length_in_days
+        )
         cr_a, cr_b = self.get_value_a_and_value_b()
 
         test_duration = len(self.data_loader.get_ordered_dates())
@@ -189,7 +238,9 @@ class ChiSquaredFixedHorizonTest(ABTestABC):
             significant = None
         else:
             p_values = self.run_test()
-            p_value = p_values[-1][-1]  # TODO check this we could want to enable multiple expnts
+            p_value = p_values[-1][
+                -1
+            ]  # TODO check this we could want to enable multiple expnts
             significant = p_value < params_for_get_test_length_in_days["alpha"]
 
         dfs = []
@@ -223,15 +274,15 @@ class ChiSquaredFixedHorizonTest(ABTestABC):
 
 class MannWhitneyFixedHorizonTest(ChiSquaredFixedHorizonTest):
     """
-        The following options are available for the alternative hypothesis (default is None):
+    The following options are available for the alternative hypothesis (default is None):
 
-          * None: computes p-value half the size of the 'two-sided' p-value and
-            a different U statistic. The default behavior is not the same as
-            using 'less' or 'greater'; it only exists for backward compatibility
-            and is deprecated.
-          * 'two-sided'
-          * 'less': one-sided
-          * 'greater': one-sided"""
+      * None: computes p-value half the size of the 'two-sided' p-value and
+        a different U statistic. The default behavior is not the same as
+        using 'less' or 'greater'; it only exists for backward compatibility
+        and is deprecated.
+      * 'two-sided'
+      * 'less': one-sided
+      * 'greater': one-sided"""
 
     def __init__(self, *, alternative_hypothesis: Optional[str] = None, **kwargs):
         assert alternative_hypothesis in [None, "two-sided", "less", "greater"]
@@ -272,7 +323,14 @@ class MannWhitneyFixedHorizonTest(ChiSquaredFixedHorizonTest):
         for i in tqdm.tqdm(range(1, n_days + 1)):
             a = (conversions_a * revenues_a)[:, : i + 1, :].reshape(n_experiments, -1)
             b = (conversions_b * revenues_b)[:, : i + 1, :].reshape(n_experiments, -1)
-            res = [scipy.stats.mannwhitneyu(a[j][~np.isnan(a[j])], b[j][~np.isnan(b[j])], alternative=self.alternative_hypothesis).pvalue for j in range(len(a))]
+            res = [
+                scipy.stats.mannwhitneyu(
+                    a[j][~np.isnan(a[j])],
+                    b[j][~np.isnan(b[j])],
+                    alternative=self.alternative_hypothesis,
+                ).pvalue
+                for j in range(len(a))
+            ]
             pvalues.append(res)
         pvalues = np.array(pvalues).T
         return pvalues
@@ -304,15 +362,26 @@ class MannWhitneyFixedHorizonTest(ChiSquaredFixedHorizonTest):
         return "MannWhitney"
 
     def get_value_a_and_value_b(self) -> Tuple[float, float]:
-        (conversions_a, revenues_a), (conversions_b, revenues_b) = self.data_loader.load_data()
-        average_revenue_a = np.nansum((conversions_a * revenues_a)) / sum(~np.isnan(conversions_a.flatten()))
-        average_revenue_b = np.nansum((conversions_b * revenues_b)) / sum(~np.isnan(conversions_b.flatten()))
+        (conversions_a, revenues_a), (
+            conversions_b,
+            revenues_b,
+        ) = self.data_loader.load_data()
+        average_revenue_a = np.nansum((conversions_a * revenues_a)) / sum(
+            ~np.isnan(conversions_a.flatten())
+        )
+        average_revenue_b = np.nansum((conversions_b * revenues_b)) / sum(
+            ~np.isnan(conversions_b.flatten())
+        )
         return average_revenue_a, average_revenue_b
 
     # TODO refactor this, it's horrible
     @staticmethod
     def get_sample_size(
-        base_rate: float, base_std_dev: float, mde: float, alpha: float = 0.05, beta: float = 0.8
+        base_rate: float,
+        base_std_dev: float,
+        mde: float,
+        alpha: float = 0.05,
+        beta: float = 0.8,
     ) -> int:
         """
         Returns the number of samples required (per variant) before stopping th AB test.
@@ -330,7 +399,7 @@ class MannWhitneyFixedHorizonTest(ChiSquaredFixedHorizonTest):
         """
         factor = (scipy.stats.norm.ppf(1 - alpha / 2) + scipy.stats.norm.ppf(beta)) ** 2
         err = (base_rate * mde) ** 2
-        variance = base_std_dev ** 2
+        variance = base_std_dev**2
         sample_size = int(factor * variance / err)
         logger.info(f"MDE: {mde} (relative), {mde * base_rate} (absolute)")
         logger.info(f"NHST samples required (per variant): {sample_size}")
