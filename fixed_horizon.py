@@ -79,30 +79,43 @@ class ChiSquaredFixedHorizonTest(ABTestABC):
         mde: float,
         n_samples_per_day: float,
         alpha: float = 0.05,
-        beta: float = 0.8,
+        power: float = 0.8,
         **kwargs,
     ) -> Tuple[int, int]:
         """
-        Returns the number of days you are expected to run your AB test for in order to ensure a statistical significance
-        of \(\\alpha\) and a power of \(\\beta\).
+        Returns the number of days you are expected to run your AB test for in
+        order to ensure a statistical significance of alpha and a power
+        of power.
 
         Args:
-            base_prob_conv: the conversion rate for the "control" variant (the one currently in production)
-            mde: The Minimum Detectable Effect is the smallest effect that will be detected \( (1-\\beta) \) % of the time.
-            n_samples_per_day: an integer, the amount of collected samples per day (total)
-            alpha: a float representing the percentage of the time a difference will be detected, assuming one does NOT exist
-            beta: a float representing the percentage of the time the minimum effect size will be detected, assuming it exists
+            base_rate: the conversion rate for the "control" variant (the one
+            currently in production)
+            mde: The Minimum Detectable Effect is the smallest effect that will
+            be detected power% of the time.
+            n_samples_per_day: an integer, the amount of collected samples
+            per day (total)
+            alpha: a float representing the percentage of the time a difference
+            will be detected, assuming one does NOT exist
+            power: a float representing the percentage of the time the minimum
+            effect size will be detected, assuming it exists
 
         Returns:
-            an integer, the number of samples per variation required before stopping th AB test.
+            a tuple comprised of an integer specifying the number of samples
+            per variation required before stopping the AB test
+            and an integer specifying the number of days required to reach the
+            sample size.
         """
+
+        if n_samples_per_day <= 0:
+            raise ValueError("You need at least one sample per day.")
+
         sample_size = self.get_sample_size(
-            base_rate=base_rate, mde=mde, alpha=alpha, beta=beta, **kwargs
+            base_rate=base_rate, mde=mde, alpha=alpha, power=power, **kwargs
         )
         wait_time_in_days = int(sample_size * 2 / n_samples_per_day) + 1
-        logger.info(f"MDE: {mde} (relative), {mde * base_rate} (absolute)")
         logger.info(
-            f"NHST samples required (per variant): {sample_size} -> {wait_time_in_days} days"
+            f"NHST days required to reach sample size: {sample_size}"
+            f" (per variant): -> {wait_time_in_days} days"
         )
         return sample_size, wait_time_in_days
 
