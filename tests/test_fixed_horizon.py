@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 
 from fixed_horizon import ChiSquaredFixedHorizonTest
@@ -73,3 +74,133 @@ def test_ChiSquaredFixedHorizonTest_get_test_length_in_days():
         chi_squared.get_test_length_in_days(
             base_rate=0.2, mde=0.05, n_samples_per_day=-100
         )
+
+
+def test_ChiSquaredFixedHorizonTest_get_pvalues():
+    chi_square = ChiSquaredFixedHorizonTest()
+
+    # one experiment
+    conversions_a = np.array(
+        [
+            [5, 6, 20, 5],
+        ]
+    )
+
+    conversions_b = np.array(
+        [
+            [5, 6, 3, 10],
+        ]
+    )
+
+    counts_a = np.array(
+        [
+            [100, 200, 250, 100],
+        ]
+    )
+
+    counts_b = np.array(
+        [
+            [100, 200, 250, 100],
+        ]
+    )
+
+    p_values = chi_square.get_pvalues(conversions_a, conversions_b, counts_a, counts_b)
+    exp_p_values = p_values[0]
+    assert exp_p_values[0] == exp_p_values[1] == 1
+    assert exp_p_values[2] < 1
+    assert exp_p_values[3] > exp_p_values[2]
+
+    # two experiments
+    conversions_a = np.array(
+        [
+            [5, 6, 20, 5],
+            [15, 16, 20, 15],
+        ]
+    )
+
+    conversions_b = np.array(
+        [
+            [5, 6, 3, 10],
+            [15, 16, 13, 10],
+        ]
+    )
+
+    counts_a = np.array(
+        [
+            [100, 200, 250, 100],
+            [200, 100, 250, 150],
+        ]
+    )
+
+    counts_b = np.array(
+        [
+            [100, 200, 250, 100],
+            [200, 100, 250, 150],
+        ]
+    )
+
+    p_values = chi_square.get_pvalues(conversions_a, conversions_b, counts_a, counts_b)
+    assert p_values.shape == (2, 4)
+
+    # no counts
+    p_values = chi_square.get_pvalues(
+        conversions_a, conversions_b, n_samples_per_day=200
+    )
+    assert p_values.shape == (2, 4)
+
+    # no counts - None, 0, or negative n_samples_per_day
+    with pytest.raises(ValueError):
+        chi_square.get_pvalues(conversions_a, conversions_b)
+        chi_square.get_pvalues(conversions_a, conversions_b, counts_a)
+        chi_square.get_pvalues(conversions_a, conversions_b, counts_b)
+
+        chi_square.get_pvalues(conversions_a, conversions_b, n_samples_per_day=0)
+        chi_square.get_pvalues(conversions_a, conversions_b, n_samples_per_day=-10)
+
+    # negative conversions
+    neg_conversions_a = np.array(
+        [
+            [5, -6, 20, 5],
+            [15, 16, 20, 15],
+        ]
+    )
+    with pytest.raises(ValueError):
+        chi_square.get_pvalues(neg_conversions_a, conversions_b, counts_a, counts_b)
+
+    # negative counts
+    neg_counts_a = np.array(
+        [
+            [100, -200, 250, 100],
+            [200, 100, -250, 150],
+        ]
+    )
+    with pytest.raises(ValueError):
+        chi_square.get_pvalues(conversions_a, conversions_b, neg_counts_a, counts_b)
+
+    # more conversions than counts
+    conversions_a = np.array(
+        [
+            [5, 6, 20, 5],
+        ]
+    )
+
+    conversions_b = np.array(
+        [
+            [5, 6, 3, 10],
+        ]
+    )
+
+    counts_a = np.array(
+        [
+            [2, 200, 250, 100],
+        ]
+    )
+
+    counts_b = np.array(
+        [
+            [1, 200, 250, 100],
+        ]
+    )
+
+    with pytest.raises(ValueError):
+        chi_square.get_pvalues(conversions_a, conversions_b, counts_a, counts_b)
