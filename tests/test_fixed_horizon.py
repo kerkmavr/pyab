@@ -3,7 +3,7 @@ import pytest
 from fixed_horizon import ChiSquaredFixedHorizonTest
 
 
-def test_ChiSquarepychadFixedHorizonTest_get_sample_size():
+def test_ChiSquaredFixedHorizonTest_get_sample_size():
 
     chi_squared = ChiSquaredFixedHorizonTest()
     samples_per_variant = chi_squared.get_sample_size(
@@ -48,3 +48,28 @@ def test_ChiSquarepychadFixedHorizonTest_get_sample_size():
     with pytest.raises(ValueError):
         chi_squared.get_sample_size(base_rate=0.2, mde=0.05, power=0.55)
         chi_squared.get_sample_size(base_rate=0.2, mde=0.05, power=0.99)
+
+
+def test_ChiSquaredFixedHorizonTest_get_test_length_in_days():
+    chi_squared = ChiSquaredFixedHorizonTest()
+    _, number_of_days = chi_squared.get_test_length_in_days(
+        base_rate=0.2, mde=0.05, n_samples_per_day=1000
+    )
+    _, number_of_days_more_samples = chi_squared.get_test_length_in_days(
+        base_rate=0.2, mde=0.05, n_samples_per_day=1500
+    )
+    assert number_of_days > number_of_days_more_samples
+
+    _, number_of_days_fewer_samples = chi_squared.get_test_length_in_days(
+        base_rate=0.2, mde=0.05, n_samples_per_day=500
+    )
+    assert number_of_days < number_of_days_fewer_samples
+
+    # invalid n_samples_per_day
+    with pytest.raises(ValueError):
+        chi_squared.get_test_length_in_days(
+            base_rate=0.2, mde=0.05, n_samples_per_day=0
+        )
+        chi_squared.get_test_length_in_days(
+            base_rate=0.2, mde=0.05, n_samples_per_day=-100
+        )
