@@ -19,7 +19,10 @@ Below are some instructions on how to set up your development environment using 
 3. Restart your terminal.
 4. Clone or fork the repository.
 5. Go into the project directory: `cd pyab`.
-6. Create a virtual environment with the desired Python version:
+6. Install the desired Python version:
+
+   `pyenv install 3.8.13`.
+7. Create a virtual environment with the desired Python version:
 
    `pyenv virtualenv 3.8.13 pyab_env`.
 7. Activate the environment: `pyenv local pyab_env`.
