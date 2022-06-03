@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy.stats
-import statsmodels.stats.proportion
 import tqdm
+from statsmodels.stats.proportion import proportions_chisquare
 
 from base import ABTestABC
 
@@ -33,19 +33,18 @@ class ChiSquaredFixedHorizonTest(ABTestABC):
         before stopping the AB test.
 
         Args:
-            base_rate: the conversion rate for the "control" variant
-            (the one currently in production)
-            mde: The Minimum Detectable Effect is the smallest effect
-            that will be detected power% of the time.
-            alpha: The significance level. A float representing the
-            percentage of the time a difference will be detected,
-            assuming one does NOT exist.
-            power: A float representing the percentage of the time the minimum
-            effect size will be detected, assuming it exists.
+            base_rate: the conversion rate for the "control" variant (the one currently
+            in production).
+            mde: The Minimum Detectable Effect is the smallest effect that will be
+            detected power% of the time.
+            alpha: The significance level. A float representing the percentage of the
+            time a difference will be detected assuming one does NOT exist.
+            power: A float representing the percentage of the time the minimum effect
+            size will be detected, assuming it exists.
 
         Returns:
-            an integer, the number of samples per variation required before
-            stopping the AB test.
+            an integer, the number of samples per variation required before stopping the
+            AB test.
         """
 
         if base_rate < 0 or base_rate > 1:
@@ -83,27 +82,25 @@ class ChiSquaredFixedHorizonTest(ABTestABC):
         **kwargs,
     ) -> Tuple[int, int]:
         """
-        Returns the number of days you are expected to run your AB test for in
-        order to ensure a statistical significance of alpha and a power
-        of power.
+        Returns the number of days you are expected to run your AB test for in order
+        to ensure a statistical significance of alpha and a power of power.
 
         Args:
-            base_rate: the conversion rate for the "control" variant (the one
-            currently in production)
-            mde: The Minimum Detectable Effect is the smallest effect that will
-            be detected power% of the time.
-            n_samples_per_day: an integer, the amount of collected samples
-            per day (total)
-            alpha: a float representing the percentage of the time a difference
-            will be detected, assuming one does NOT exist
-            power: a float representing the percentage of the time the minimum
-            effect size will be detected, assuming it exists
+            base_rate: the conversion rate for the "control" variant (the one currently
+            in production).
+            mde: The Minimum Detectable Effect is the smallest effect that will be
+            detected power% of the time.
+            n_samples_per_day: an integer, the amount of collected samples per day
+            (total).
+            alpha: a float representing the percentage of the time a difference will be
+            detected, assuming one does NOT exist.
+            power: a float representing the percentage of the time the minimum effect
+            size will be detected, assuming it exists.
 
         Returns:
-            a tuple comprised of an integer specifying the number of samples
-            per variation required before stopping the AB test
-            and an integer specifying the number of days required to reach the
-            sample size.
+            a tuple comprised of an integer specifying the number of samples per
+            variation required before stopping the AB test and an integer specifying the
+            number of days required to reach the sample size.
         """
 
         if n_samples_per_day <= 0:
@@ -128,39 +125,68 @@ class ChiSquaredFixedHorizonTest(ABTestABC):
         n_samples_per_day: Optional[int] = None,
     ) -> np.ndarray:
         """
-        Compute the daily pvalues resulting from a chi squared test for a given list of experiments.
+        Compute the daily pvalues resulting from a chi squared test for a given
+        list of experiments.
 
         Args:
-            conversions_a: `a numpy.ndarray` of shape `(number of experiments, number of days)`. The element at position (i,j) in the array is
-                           the number of conversions on the j-th day for the i-th experiment for variant A.
-            conversions_b: `a numpy.ndarray` of shape `(number of experiments, number of days)`. The element at position (i,j) in the array is
-                           the number of conversions on the j-th day for the i-th experiment for variant B.
-            counts_a: `a numpy.ndarray` of shape `(number of experiments, number of days)`. The element at position (i,j) in the array is
-                      the number of samples collected on the j-th day for the i-th experiment for variant A.
-                      If this value is not provided then `n_samples_per_day // 2` sample are assumed to be collected each day for variant A.
-            counts_b: `a numpy.ndarray` of shape `(number of experiments, number of days)`. The element at position (i,j) in the array is
-                      the number of samples collected on the j-th day for the i-th experiment for variant B.
-                      If this value is not provided then `n_samples_per_day // 2` sample are assumed to be collected each day for variant B.
-            n_samples_per_day: an integer, the number of samples collected per day (total). This value has to be provided only if `counts_a` and/or `counts_b` are not passed as parameters.
+            conversions_a: `a numpy.ndarray` of shape `(number of experiments,
+            number of days)`. The element at position (i,j) in the array is the number
+            of conversions on the j-th day for the i-th experiment for variant A.
+            conversions_b: `a numpy.ndarray` of shape `(number of experiments,
+            number of days)`. The element at position (i,j) in the array is the number
+            of conversions on the j-th day for the i-th experiment for variant B.
+            counts_a: `a numpy.ndarray` of shape `(number of experiments,
+            number of days)`. The element at position (i,j) in the array is the number
+            of samples collected on the j-th day for the i-th experiment for variant A.
+            If this value is not provided then `n_samples_per_day // 2` samples are
+            assumed to be collected each day for variant A.
+            counts_b: `a numpy.ndarray` of shape `(number of experiments,
+            number of days)`. The element at position (i,j) in the array is the number
+            of samples collected on the j-th day for the i-th experiment for variant B.
+            If this value is not provided then `n_samples_per_day // 2` samples are
+            assumed to be collected each day for variant B.
+            n_samples_per_day: an integer, the number of samples collected per day
+            (total). This value has to be provided only if `counts_a` and/or `counts_b`
+            are not passed as parameters.
 
         Returns:
-            `a numpy.ndarray` of shape(number of experiments, number of days). The element at position (i,j) in the array is
-            the pvalue of the test performed on the j-th day for the i-th experiment.
+            `a numpy.ndarray` of shape(number of experiments, number of days). The
+            element at position (i,j) in the array is the pvalue of the test performed
+            on the j-th day for the i-th experiment.
         """
         n_experiments, n_days = conversions_a.shape
 
+        if (conversions_a < 0).any():
+            raise ValueError("Number of conversions cannot be negative.")
+        if (conversions_b < 0).any():
+            raise ValueError("Number of conversions cannot be negative.")
+
         if counts_a is None:
+            if n_samples_per_day is None or n_samples_per_day <= 0:
+                raise ValueError(
+                    "None counts_a provided. Positive n_samples_per_day is" " needed."
+                )
             counts_a = np.cumsum(
                 np.ones((n_experiments, n_days)) * n_samples_per_day, axis=1
             )
         else:
             counts_a = np.cumsum(counts_a, axis=1)
+
         if counts_b is None:
+            if n_samples_per_day is None or n_samples_per_day <= 0:
+                raise ValueError(
+                    "None counts_b provided. Positive n_samples_per_day is" " needed."
+                )
             counts_b = np.cumsum(
                 np.ones((n_experiments, n_days)) * n_samples_per_day, axis=1
             )
         else:
             counts_b = np.cumsum(counts_b, axis=1)
+
+        if (counts_a < 0).any():
+            raise ValueError("Number of counts cannot be negative.")
+        if (counts_b < 0).any():
+            raise ValueError("Number of counts cannot be negative.")
 
         conversions_a = np.cumsum(conversions_a, axis=1)
         conversions_b = np.cumsum(conversions_b, axis=1)
@@ -170,7 +196,15 @@ class ChiSquaredFixedHorizonTest(ABTestABC):
         for e in range(n_experiments):
             pv_per_day = []
             for d in range(n_days):
-                stat, pvalue, tab = statsmodels.stats.proportion.proportions_chisquare(
+                if conversions_a[e, d] > counts_a[e, d]:
+                    raise ValueError(
+                        "More conversions than counts encountered in " "variation A."
+                    )
+                if conversions_b[e, d] > counts_b[e, d]:
+                    raise ValueError(
+                        "More conversions than counts encountered in " "variation B."
+                    )
+                stat, pvalue, tab = proportions_chisquare(
                     [conversions_a[e, d], conversions_b[e, d]],
                     [counts_a[e, d], counts_b[e, d]],
                 )
