@@ -214,22 +214,19 @@ class ChiSquaredFixedHorizonTest(ABTestABC):
 
     def run_test(self) -> np.ndarray:
         """
-        Run an AB testing simulation for `n_days` for `n_experiments` (number of different experiments).
+        Run an AB testing simulation for `n_days` for `n_experiments` (number of
+        different experiments).
         The main KPI of the test is any kind of Conversion Rate (CR).
 
         `n_days` and `n_experiments` are defined by the user within `self.data_loader`.
 
         Returns:
-            `a numpy.ndarray` of shape(n_experiments, n_days). The element at position (i,j) in the array is
-            the pvalue of the test performed on the j-th day for the i-th experiment.
+            `a numpy.ndarray` of shape(n_experiments, n_days). The element at position
+            (i,j) in the array is the pvalue of the test performed on the j-th day for
+            the i-th experiment.
         """
-        (conversions_a, counts_a), (
-            conversions_b,
-            counts_b,
-        ) = self.data_loader.load_data()
-        pvalues = self.get_pvalues(
-            conversions_a, conversions_b, counts_a=counts_a, counts_b=counts_b
-        )
+        conversions_a, counts_a, conversions_b, counts_b = self.data_loader.load_data()
+        pvalues = self.get_pvalues(conversions_a, conversions_b, counts_a, counts_b)
         return pvalues
 
     def plot(
