@@ -1,3 +1,5 @@
+from unittest import mock
+
 import numpy as np
 import pytest
 
@@ -77,7 +79,7 @@ def test_ChiSquaredFixedHorizonTest_get_test_length_in_days():
 
 
 def test_ChiSquaredFixedHorizonTest_get_pvalues():
-    chi_square = ChiSquaredFixedHorizonTest()
+    chi_squared = ChiSquaredFixedHorizonTest()
 
     # one experiment
     conversions_a = np.array(
@@ -104,7 +106,7 @@ def test_ChiSquaredFixedHorizonTest_get_pvalues():
         ]
     )
 
-    p_values = chi_square.get_pvalues(conversions_a, conversions_b, counts_a, counts_b)
+    p_values = chi_squared.get_pvalues(conversions_a, conversions_b, counts_a, counts_b)
     exp_p_values = p_values[0]
     assert exp_p_values[0] == exp_p_values[1] == 1
     assert exp_p_values[2] < 1
@@ -139,23 +141,23 @@ def test_ChiSquaredFixedHorizonTest_get_pvalues():
         ]
     )
 
-    p_values = chi_square.get_pvalues(conversions_a, conversions_b, counts_a, counts_b)
+    p_values = chi_squared.get_pvalues(conversions_a, conversions_b, counts_a, counts_b)
     assert p_values.shape == (2, 4)
 
     # no counts
-    p_values = chi_square.get_pvalues(
+    p_values = chi_squared.get_pvalues(
         conversions_a, conversions_b, n_samples_per_day=200
     )
     assert p_values.shape == (2, 4)
 
     # no counts - None, 0, or negative n_samples_per_day
     with pytest.raises(ValueError):
-        chi_square.get_pvalues(conversions_a, conversions_b)
-        chi_square.get_pvalues(conversions_a, conversions_b, counts_a)
-        chi_square.get_pvalues(conversions_a, conversions_b, counts_b)
+        chi_squared.get_pvalues(conversions_a, conversions_b)
+        chi_squared.get_pvalues(conversions_a, conversions_b, counts_a)
+        chi_squared.get_pvalues(conversions_a, conversions_b, counts_b)
 
-        chi_square.get_pvalues(conversions_a, conversions_b, n_samples_per_day=0)
-        chi_square.get_pvalues(conversions_a, conversions_b, n_samples_per_day=-10)
+        chi_squared.get_pvalues(conversions_a, conversions_b, n_samples_per_day=0)
+        chi_squared.get_pvalues(conversions_a, conversions_b, n_samples_per_day=-10)
 
     # negative conversions
     neg_conversions_a = np.array(
@@ -165,7 +167,7 @@ def test_ChiSquaredFixedHorizonTest_get_pvalues():
         ]
     )
     with pytest.raises(ValueError):
-        chi_square.get_pvalues(neg_conversions_a, conversions_b, counts_a, counts_b)
+        chi_squared.get_pvalues(neg_conversions_a, conversions_b, counts_a, counts_b)
 
     # negative counts
     neg_counts_a = np.array(
@@ -175,7 +177,7 @@ def test_ChiSquaredFixedHorizonTest_get_pvalues():
         ]
     )
     with pytest.raises(ValueError):
-        chi_square.get_pvalues(conversions_a, conversions_b, neg_counts_a, counts_b)
+        chi_squared.get_pvalues(conversions_a, conversions_b, neg_counts_a, counts_b)
 
     # more conversions than counts
     conversions_a = np.array(
@@ -203,4 +205,19 @@ def test_ChiSquaredFixedHorizonTest_get_pvalues():
     )
 
     with pytest.raises(ValueError):
-        chi_square.get_pvalues(conversions_a, conversions_b, counts_a, counts_b)
+        chi_squared.get_pvalues(conversions_a, conversions_b, counts_a, counts_b)
+
+
+def test_ChiSquaredFixedHorizonTest_run_test():
+    mock_data_loader = mock.MagicMock()
+    mock_data_loader.load_data = mock.MagicMock(
+        return_value=(
+            np.array([[5, 6, 20, 5]]),
+            np.array([[100, 200, 250, 100]]),
+            np.array([[5, 6, 3, 10]]),
+            np.array([[100, 200, 250, 100]]),
+        )
+    )
+    chi_squared = ChiSquaredFixedHorizonTest(data_loader=mock_data_loader)
+    p_values = chi_squared.run_test()
+    assert p_values.shape == (1, 4)

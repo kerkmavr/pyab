@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import abc
 import logging
-import pandas as pd
 import typing
+
+import pandas as pd
 
 if typing.TYPE_CHECKING:
     # from pyab.data.synthetic import DataGeneratorABC - this is a data generator to test the code
-    from typing import Dict, Any, Optional
+    from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ class ABTestABC(metaclass=abc.ABCMeta):
         "SIGNIFICANCE_FLAG",
     ]
 
-    def __init__(self, data_loader: DataGeneratorABC, name: Optional[str] = None):
+    def __init__(self, data_loader: Optional = None, name: Optional[str] = None):
         self.data_loader = data_loader
         self.name = name
 
